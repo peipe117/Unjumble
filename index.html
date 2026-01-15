@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>句子練習系統</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background-color: white;
+                height: auto;
+                overflow: visible;
+            }
+        }
+        
+        .print-only {
+            display: none;
+        }
+
+        /* 灑花動畫 */
+        @keyframes confetti-fall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        
+        .confetti-piece {
+            position: fixed;
+            pointer-events: none;
+            z-index: 50;
+            top: -20px;
+        }
+
+        /* 拖曳時的樣式 */
+        .dragging {
+            opacity: 0.4;
+        }
+        
+        .drag-over {
+            border: 2px dashed #F59E0B; /* amber-500 */
+            background-color: #FEF3C7; /* amber-100 */
+        }
+
+        /* 禁止選取文字，避免拖曳時選到文字 */
+        .noselect {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* 模態視窗背景 */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-amber-50 font-sans min-h-screen flex flex-col relative overflow-x-hidden">
+
+    <!-- 灑花容器 -->
+    <div id="confetti-container"></div>
+
+    <!-- 頂部導航 -->
+    <header class="bg-amber-500 text-white p-4 shadow-md sticky top-0 z-20 no-print">
+        <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center gap-2">
+                <!-- 圖示: BookOpen -->
+                <svg class="w-6 h-6 hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                <h1 class="text-lg md:text-xl font-bold">學華語向前走 第二冊</h1>
+            </div>
+            
+            <div class="flex items-center gap-2 text-sm font-bold ml-auto flex-wrap justify-end">
+                <!-- 編輯按鈕 -->
+                <button id="edit-mode-btn" class="bg-amber-700/50 hover:bg-amber-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition mr-1" title="新增或編輯課程">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    <span class="hidden sm:inline">編輯課程</span>
+                </button>
+
+                <button onclick="window.print()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition mr-1" title="列印本課學習單">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    <span class="hidden sm:inline">列印學習單</span>
+                </button>
+
+                <div class="bg-amber-600 px-3 py-1 rounded-full flex items-center gap-1 shadow-inner" title="目前等級">
+                    <svg class="w-4 h-4 text-yellow-300 fill-current" viewBox="0 0 24 24"><path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5ZM19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V17H19V19Z"></path></svg>
+                    <span id="rank-display">修練中</span>
+                </div>
+                <div class="bg-amber-600 px-3 py-1 rounded-full flex items-center gap-1 shadow-inner min-w-[70px] justify-center" title="花費時間">
+                    <svg class="w-4 h-4 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="timer-display">00:00</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 遊戲主體 -->
+    <main id="app-container" class="max-w-3xl mx-auto w-full p-4 flex-1 flex flex-col z-10 no-print">
+        
+        <!-- 頂部控制列 (選課與進度) -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
+            <div class="w-full md:w-auto">
+                <select id="lesson-select" class="w-full md:w-auto bg-white border-2 border-amber-200 text-gray-700 py-2 px-4 rounded-xl font-medium focus:outline-none focus:border-amber-500 cursor-pointer hover:border-amber-300 transition">
+                    <!-- 由 JS 動態生成選項 -->
+                </select>
+            </div>
+            <div class="text-gray-500 font-medium ml-auto" id="progress-display">
+                進度: 1 / 10
+            </div>
+        </div>
+
+        <!-- 遊戲卡片區域 -->
+        <div id="game-card" class="bg-white rounded-3xl shadow-xl border-4 border-amber-100 overflow-hidden flex flex-col flex-1 relative transition-all">
+            
+            <!-- 題目提示區 -->
+            <div class="bg-amber-50 p-6 text-center border-b border-amber-100 relative">
+                <div class="flex justify-center items-center gap-3 mb-2 flex-wrap">
+                    <span class="bg-amber-200 text-amber-800 text-xs px-2 py-1 rounded-md font-bold flex items-center gap-1">
+                        重組句子 (可拖曳排序)
+                    </span>
+                    <button id="tts-btn" class="bg-white p-2 rounded-full shadow-sm text-amber-500 hover:text-amber-700 hover:scale-110 transition active:scale-95" title="朗讀句子">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 答題區 (Answer Area) -->
+            <div id="answer-area" class="p-4 md:p-8 min-h-[160px] bg-white flex flex-wrap content-start gap-2 justify-center transition-colors duration-300 noselect">
+                <div id="empty-msg" class="text-gray-300 text-center w-full py-8 pointer-events-none select-none flex flex-col items-center">
+                    <span class="text-4xl mb-2 opacity-20">👇</span>
+                    <span>點擊下方詞語加入</span>
+                </div>
+                <!-- 詞彙卡片將動態插入此處 -->
+            </div>
+
+            <!-- 狀態回饋 -->
+            <div id="feedback-area" class="transition-all duration-300 overflow-hidden max-h-0 py-0 text-center font-bold text-lg">
+                <!-- 答對/答錯訊息 -->
+            </div>
+
+            <!-- 選詞區 (Source Area) -->
+            <div id="source-area" class="bg-gray-50 p-4 md:p-8 border-t border-gray-100 min-h-[200px] flex-1 flex flex-wrap gap-3 justify-center content-start noselect">
+                <!-- 來源詞彙卡片 -->
+            </div>
+
+        </div>
+
+        <!-- 底部控制按鈕 -->
+        <div class="mt-6 flex gap-4" id="controls">
+            <button id="reset-btn" class="flex-1 py-3 bg-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-300 transition active:scale-95">重置</button>
+            <button id="check-btn" disabled class="flex-1 py-3 rounded-xl font-bold text-white bg-gray-300 cursor-not-allowed transition shadow-lg flex items-center justify-center gap-2 active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> 檢查答案
+            </button>
+            <button id="next-btn" class="hidden w-full py-4 bg-amber-500 text-white rounded-xl font-bold text-xl hover:bg-amber-600 transition shadow-lg flex items-center justify-center gap-2 animate-pulse active:scale-95">
+                下一題 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+            </button>
+        </div>
+
+        <!-- 恭喜過關畫面 (初始隱藏) -->
+        <div id="completion-screen" class="hidden bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border-4 border-amber-200 m-auto absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+            <div class="mx-auto mb-4">
+                <svg class="w-24 h-24 text-yellow-500 mx-auto animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"></path></svg>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">恭喜完成！</h2>
+            <p class="text-xl text-gray-600 mb-6">
+                你完成了 <span id="completed-lesson-title" class="text-amber-600 font-bold"></span>
+            </p>
+            
+            <div class="flex flex-col gap-2 mb-8">
+                <div class="text-2xl font-bold text-amber-500 flex items-center justify-center gap-2">
+                    <svg class="w-8 h-8 text-yellow-300 fill-current" viewBox="0 0 24 24"><path d="M5 16L3 5L8.5 10L12 4L15.5 10L21 5L19 16H5ZM19 19C19 19.6 18.6 20 18 20H6C5.4 20 5 19.6 5 19V17H19V19Z"></path></svg>
+                    等級: <span id="final-rank"></span>
+                </div>
+                <div class="text-lg text-gray-500 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    所花時間: <span id="final-time"></span>
+                </div>
+            </div>
+            
+            <div class="space-y-3">
+                <button id="restart-btn" class="w-full py-3 bg-blue-500 text-white rounded-xl font-bold text-lg hover:bg-blue-600 transition shadow-lg flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 再玩一次
+                </button>
+                <button id="next-lesson-btn" class="w-full py-3 bg-amber-500 text-white rounded-xl font-bold text-lg hover:bg-amber-600 transition shadow-lg flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg> 下一課
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 編輯器模態視窗 -->
+    <div id="editor-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div class="bg-amber-500 text-white p-4 flex justify-between items-center">
+                <h3 class="text-xl font-bold flex items-center gap-2">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    課程編輯器
+                </h3>
+                <button id="close-editor-btn" class="hover:bg-amber-600 p-1 rounded transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1">
+                <!-- 資料管理 (匯入/匯出) -->
+                <div class="mb-6 flex gap-3 border-b border-gray-200 pb-6">
+                    <button id="export-btn" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2 border border-gray-300">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        匯出課程(備份)
+                    </button>
+                    <label for="import-file" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2 border border-gray-300 cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        匯入課程
+                        <input type="file" id="import-file" accept=".json" class="hidden">
+                    </label>
+                </div>
+
+                <div class="mb-6 border-b border-gray-200 pb-6">
+                    <h4 class="font-bold text-gray-700 mb-3 text-lg" id="editor-form-title">新增/編輯課程</h4>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">課程標題</label>
+                            <input type="text" id="new-lesson-title" placeholder="例如：我的練習課" class="w-full border-2 border-gray-300 rounded-lg p-2 focus:border-amber-500 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">
+                                課程內容 <span class="text-xs text-amber-600 font-normal">(每行一句，詞語間請用 " / " 或空格分開)</span>
+                            </label>
+                            <textarea id="new-lesson-content" rows="6" placeholder="例如：&#10;今天 / 天氣 / 真好。&#10;我 / 喜歡 / 吃 / 蘋果。" class="w-full border-2 border-gray-300 rounded-lg p-2 focus:border-amber-500 focus:outline-none font-mono text-sm"></textarea>
+                            
+                            <!-- 即時預覽區 -->
+                            <div class="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[60px]">
+                                <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">即時預覽 (Live Preview)</label>
+                                <div id="editor-preview" class="space-y-2 text-sm text-gray-600">
+                                    <span class="italic opacity-50">預覽區...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="save-lesson-btn" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            儲存課程
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="font-bold text-gray-700 mb-3 text-lg">已建立的自訂課程</h4>
+                    <div id="custom-lessons-list" class="space-y-2">
+                        <p class="text-gray-400 text-sm text-center py-4">尚無自訂課程</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-amber-100 text-amber-800 text-center py-4 text-sm font-semibold no-print">
+        Design by Sophia Wong
+    </footer>
+
+    <!-- 列印版 (預設隱藏，列印時顯示) -->
+    <div class="print-only bg-white text-black p-6 font-serif">
+        <div class="border-b-2 border-black pb-2 mb-6">
+            <div class="flex justify-between items-end mb-3">
+                <div>
+                    <h1 class="text-2xl font-bold">句子重組練習</h1>
+                    <h2 id="print-lesson-title" class="text-xl font-semibold mt-1"></h2>
+                </div>
+                <div class="text-lg mb-1">
+                    <span>姓名 (Name): ____________________</span>
+                </div>
+            </div>
+            <p class="text-base font-bold">說明：請將下方的詞語重組成正確的句子，並加上標點符號寫在橫線上。</p>
+        </div>
+
+        <div id="print-worksheet-content" class="space-y-6">
+            <!-- JS 生成 -->
+        </div>
+
+        <div class="mt-8 text-center text-xs text-gray-400">
+            <p>Design by Sophia Wong</p>
+        </div>
+    </div>
+
+    <!-- Javascript Logic -->
+    <script>
+        // 預設資料
+        const DEFAULT_GAME_DATA = [
+            {
+                lessonId: 1,
+                lessonTitle: "第一課：新同學",
+                sentences: [
+                    { id: "L1-S1", chinese: "今天，我們有兩個新同學。", segments: ["今天", "，", "我們", "有", "兩個", "新同學", "。"] },
+                    { id: "L1-S2", chinese: "現在請他們介紹自己。", segments: ["現在", "請", "他們", "介紹", "自己", "。"] },
+                    { id: "L1-S3", chinese: "大家好，我叫方友朋，今年八歲。", segments: ["大家好", "，", "我叫", "方友朋", "，", "今年", "八歲", "。"] },
+                    { id: "L1-S4", chinese: "我最喜歡跟爸爸一起游泳。", segments: ["我", "最喜歡", "跟爸爸", "一起", "游泳", "。"] },
+                    { id: "L1-S5", chinese: "大家好，我叫張莉，今年七歲。", segments: ["大家好", "，", "我叫", "張莉", "，", "今年", "七歲", "。"] },
+                    { id: "L1-S6", chinese: "我比較喜歡看書。", segments: ["我", "比較", "喜歡", "看書", "。"] },
+                    { id: "L1-S7", chinese: "你們好，我叫李大文。", segments: ["你們好", "，", "我叫", "李大文", "。"] },
+                    { id: "L1-S8", chinese: "很高興認識你們。", segments: ["很高興", "認識", "你們", "。"] },
+                    { id: "L1-S9", chinese: "歡迎你們來中文學校學華語。", segments: ["歡迎", "你們", "來", "中文學校", "學華語", "。"] }
+                ]
+            },
+            {
+                lessonId: 2,
+                lessonTitle: "第二課：我爸爸做生意",
+                sentences: [
+                    { id: "L2-S1", chinese: "張莉，照片裡面的人是誰？", segments: ["張莉", "，", "照片", "裡面", "的", "人", "是", "誰", "？"] },
+                    { id: "L2-S2", chinese: "左邊是我外公，他以前是醫生。", segments: ["左邊", "是", "我外公", "，", "他", "以前", "是", "醫生", "。"] },
+                    { id: "L2-S3", chinese: "右邊是我外婆。", segments: ["右邊", "是", "我外婆", "。"] },
+                    { id: "L2-S4", chinese: "你爸爸媽媽做什麼工作？", segments: ["你", "爸爸媽媽", "做", "什麼", "工作", "？"] },
+                    { id: "L2-S5", chinese: "我爸爸做生意，我媽媽幫他。", segments: ["我爸爸", "做生意", "，", "我媽媽", "幫他", "。"] },
+                    { id: "L2-S6", chinese: "你爸爸媽媽呢?", segments: ["你", "爸爸媽媽", "呢", "?",] },
+                    { id: "L2-S7", chinese: "我爸爸在電腦公司上班。", segments: ["我爸爸", "在", "電腦公司", "上班", "。"] },
+                    { id: "L2-S8", chinese: "我媽媽在銀行工作。", segments: ["我媽媽", "在", "銀行", "工作", "。"] },
+                    { id: "L2-S9", chinese: "你以後想做什麼？", segments: ["你", "以後", "想", "做", "什麼", "？"] },
+                    { id: "L2-S10", chinese: "我以後想跟爸爸一樣。", segments: ["我", "以後", "想", "跟爸爸", "一樣", "。"] }
+                ]
+            },
+            {
+                lessonId: 3,
+                lessonTitle: "第三課：去超級市場",
+                sentences: [
+                    { id: "L3-S1", chinese: "媽媽，你要去哪裡？", segments: ["媽媽", "，", "你", "要去", "哪裡", "？"] },
+                    { id: "L3-S2", chinese: "我要去附近的超級市場買東西。", segments: ["我要去", "附近的", "超級市場", "買東西", "。"] },
+                    { id: "L3-S3", chinese: "你要跟我一起去嗎？", segments: ["你要", "跟我", "一起去", "嗎", "？"] },
+                    { id: "L3-S4", chinese: "要，我想去買巧克力冰淇淋。", segments: ["要", "，", "我想去", "買", "巧克力", "冰淇淋", "。"] },
+                    { id: "L3-S5", chinese: "你今天要買什麼？", segments: ["你", "今天", "要買", "什麼", "？"] },
+                    { id: "L3-S6", chinese: "我今天要買魚、牛肉、青菜，還要買米。", segments: ["我", "今天", "要買", "魚", "、", "牛肉", "、", "青菜", "，", "還要", "買米", "。"] },
+                    { id: "L3-S8", chinese: "我也可以買糖果嗎？", segments: ["我", "也可以", "買", "糖果", "嗎", "？"] },
+                    { id: "L3-S9", chinese: "我們去看一下吧！", segments: ["我們", "去", "看一下", "吧", "！"] }
+                ]
+            },
+            {
+                lessonId: 4,
+                lessonTitle: "第四課：我想吃漢堡",
+                sentences: [
+                    { id: "L4-S1", chinese: "我想吃漢堡跟薯條。", segments: ["我想吃", "漢堡", "跟", "薯條", "。"] },
+                    { id: "L4-S2", chinese: "我們可不可以出去吃？", segments: ["我們", "可不可以", "出去吃", "？"] },
+                    { id: "L4-S3", chinese: "今天先在家吃。", segments: ["今天", "先在", "家吃", "。"] },
+                    { id: "L4-S4", chinese: "週末再出去吃吧！", segments: ["週末", "再", "出去吃", "吧", "！"] },
+                    { id: "L4-S5", chinese: "今天晚餐想吃什麼？", segments: ["今天", "晚餐", "想吃", "什麼", "？"] },
+                    { id: "L4-S6", chinese: "我想吃麵。文文，你呢？", segments: ["我想", "吃麵", "。", "文文", "，", "你呢", "？"] },
+                    { id: "L4-S7", chinese: "我想吃蛋炒飯，有湯嗎？", segments: ["我想吃", "蛋炒飯", "，", "有", "湯", "嗎", "？"] },
+                    { id: "L4-S8", chinese: "我已經做了玉米湯。", segments: ["我", "已經", "做了", "玉米湯", "。"] },
+                    { id: "L4-S9", chinese: "媽，我現在很餓。", segments: ["媽", "，", "我", "現在", "很餓", "。"] },
+                    { id: "L4-S10", chinese: "我想快點吃晚飯，好嗎？", segments: ["我", "想", "快點", "吃晚飯", "，", "好嗎", "？"] }
+                ]
+            },
+            {
+                lessonId: 5,
+                lessonTitle: "第五課：春天快到了",
+                sentences: [
+                    { id: "L5-S1", chinese: "你看！樹葉變黃了，秋天快到了。", segments: ["你看", "！", "樹葉", "變黃了", "，", "秋天", "快到了", "。"] },
+                    { id: "L5-S3", chinese: "可是草還是綠色的。", segments: ["可是", "草", "還是", "綠色的", "。"] },
+                    { id: "L5-S4", chinese: "秋天天氣很好。我覺得很舒服。", segments: ["秋天", "天氣", "很好", "。", "我", "覺得", "很舒服", "。"] },
+                    { id: "L5-S6", chinese: "春天也不錯。", segments: ["春天", "也不錯", "。"] },
+                    { id: "L5-S7", chinese: "春天的時候，我們家院子有很多顏色的花。", segments: ["春天的", "時候", "，", "我們家", "院子", "有", "很多", "顏色的", "花", "。"] },
+                    { id: "L5-S8", chinese: "紅色的、白色的都有。", segments: ["紅色的", "、", "白色的", "都有", "。"] },
+                    { id: "L5-S9", chinese: "我覺得紅色的花最漂亮。", segments: ["我", "覺得", "紅色的", "花", "最漂亮", "。"] }
+                ]
+            },
+            {
+                lessonId: 6,
+                lessonTitle: "第六課：農曆新年",
+                sentences: [
+                    { id: "L6-S1", chinese: "老師說農曆新年快到了。", segments: ["老師說", "農曆新年", "快到了", "。"] },
+                    { id: "L6-S2", chinese: "對，下個星期五是農曆新年。", segments: ["對", "，", "下個", "星期五", "是", "農曆新年", "。"] },
+                    { id: "L6-S3", chinese: "媽媽會去華人超市買年糕嗎？", segments: ["媽媽", "會去", "華人超市", "買", "年糕", "嗎", "？"] },
+                    { id: "L6-S4", chinese: "會，那天我們還要給爺爺奶奶拜年。", segments: ["會", "，", "那天", "我們", "還要給", "爺爺奶奶", "拜年", "。"] },
+                    { id: "L6-S5", chinese: "太好了，爺爺每年都會給我紅包。", segments: ["太好了", "，", "爺爺", "每年", "都會", "給我", "紅包", "。"] },
+                    { id: "L6-S6", chinese: "如果在臺灣，我們還會貼春聯、放鞭炮。", segments: ["如果", "在臺灣", "，", "我們", "還會", "貼春聯", "、", "放鞭炮", "。"] }
+                ]
+            },
+            {
+                lessonId: 7,
+                lessonTitle: "第七課：早一點睡覺",
+                sentences: [
+                    { id: "L7-S1", chinese: "該起床了！來不及了！", segments: ["該", "起床了", "！", "來不及了", "！"] },
+                    { id: "L7-S2", chinese: "我很累，還想睡覺。", segments: ["我很累", "，", "還想", "睡覺", "。"] },
+                    { id: "L7-S3", chinese: "今天晚上早一點睡。", segments: ["今天晚上", "早一點","睡", "。"] },
+                    { id: "L7-S4", chinese: "現在趕快去刷牙、洗澡。", segments: ["現在", "趕快去", "刷牙", "、", "洗澡", "。"] },
+                    { id: "L7-S5", chinese: "我昨天晚上洗過澡了。", segments: ["我", "昨天晚上", "洗過澡", "了", "。"] },
+                    { id: "L7-S6", chinese: "還有，別忘了用肥皂洗臉。", segments: ["還有", "，", "別忘了", "用", "肥皂", "洗臉", "。"] },
+                    { id: "L7-S7", chinese: "我知道了，要洗乾淨。", segments: ["我知道了", "，", "要", "洗乾淨", "。"] }
+                ]
+            },
+            {
+                lessonId: 8,
+                lessonTitle: "第八課：我的寵物",
+                sentences: [
+                    { id: "L8-S1", chinese: "昨天我爸爸的朋友送給我一隻狗。", segments: ["昨天", "我爸爸的", "朋友", "送給我", "一隻狗", "。"] },
+                    { id: "L8-S2", chinese: "你們家有寵物嗎？", segments: ["你們家", "有", "寵物", "嗎", "？"] },
+                    { id: "L8-S3", chinese: "有，我家有兩隻狗。", segments: ["有", "，", "我家", "有", "兩隻狗", "。"] },
+                    { id: "L8-S4", chinese: "我每天都帶牠們去散步。", segments: ["我", "每天", "都帶", "牠們", "去", "散步", "。"] },
+                    { id: "L8-S5", chinese: "張莉，你養過狗嗎？", segments: ["張莉", "，", "你", "養過", "狗", "嗎", "？"] },
+                    { id: "L8-S6", chinese: "我沒養過狗，我去年養了一隻貓。", segments: ["我", "沒養過", "狗", "，", "我去年", "養了", "一隻貓", "。"] },
+                    { id: "L8-S7", chinese: "可是，上個月不見了。", segments: ["可是", "，","上個月", "不見了", "。"] },
+                    { id: "L8-S8", chinese: "我也養過貓，非常可愛。", segments: ["我也", "養過貓", "，", "非常可愛", "。"] },
+                    { id: "L8-S9", chinese: "我每天都餵牠。", segments: ["我", "每天", "都", "餵牠", "。"] },
+                    { id: "L8-S10", chinese: "以後我想養一隻兔子。", segments: ["以後", "我想", "養", "一隻", "兔子", "。"] }
+                ]
+            },
+            {
+                lessonId: 9,
+                lessonTitle: "第九課：音樂教室在北方",
+                sentences: [
+                    { id: "L9-S1", chinese: "東明，這是什麼？", segments: ["東明", "，", "這是", "什麼", "？"] },
+                    { id: "L9-S2", chinese: "指南針，也叫指北針。", segments: ["指南針", "，", "也叫", "指北針", "。"] },
+                    { id: "L9-S3", chinese: "它告訴我們南方和北方在哪裡。", segments: ["它", "告訴", "我們", "南方", "和", "北方", "在哪裡", "。"] },
+                    { id: "L9-S4", chinese: "音樂教室是什麼方向？", segments: ["音樂教室", "是", "什麼", "方向", "？"] },
+                    { id: "L9-S5", chinese: "音樂教室在北方，校門口在南方。", segments: ["音樂教室", "在北方", "，", "校門口", "在南方", "。"] },
+                    { id: "L9-S6", chinese: "足球場在東方，還是西方？", segments: ["足球場", "在東方", "，", "還是", "西方", "？"] },
+                    { id: "L9-S7", chinese: "因為音樂教室在北方，所以足球場在東方。", segments: ["因為", "音樂教室", "在北方", "，", "所以", "足球場", "在東方", "。"] }
+                ]
+            },
+            {
+                lessonId: 10,
+                lessonTitle: "第十課：外公、外婆住在臺灣",
+                sentences: [
+                    { id: "L10-S1", chinese: "暑假的時候，我會去臺灣看外公、外婆。", segments: ["暑假的", "時候", "，", "我會去", "臺灣", "看", "外公", "、", "外婆", "。"] },
+                    { id: "L10-S3", chinese: "你外公、外婆家在哪裡？", segments: ["你", "外公", "、", "外婆家", "在哪裡", "？"] },
+                    { id: "L10-S4", chinese: "他們本來住在臺北。", segments: ["他們", "本來", "住在", "臺北", "。"] },
+                    { id: "L10-S5", chinese: "退休以後，跟我的舅舅住在臺南。", segments: ["退休", "以後", "，", "跟我的", "舅舅", "住在", "臺南", "。"] },
+                    { id: "L10-S6", chinese: "你們每年都去看外公外婆嗎？", segments: ["你們", "每年", "都去", "看", "外公外婆", "嗎", "？"] },
+                    { id: "L10-S7", chinese: "我們每年都去看他們一次。", segments: ["我們", "每年", "都去", "看他們", "一次", "。"] },
+                    { id: "L10-S8", chinese: "你外公外婆住在哪裡？", segments: ["你", "外公外婆", "住在", "哪裡", "？"] },
+                    { id: "L10-S9", chinese: "我外公、外婆現在住在紐約。", segments: ["我", "外公", "、", "外婆", "現在", "住在", "紐約", "。"] },
+                    { id: "L10-S10", chinese: "他們下個月會來看我們。", segments: ["他們", "下個月", "會來", "看我們", "。"] },
+                    { id: "L10-S11", chinese: "我外公、外婆喜歡旅行，常常來看我們。", segments: ["我", "外公", "、", "外婆", "喜歡", "旅行", "，", "常常", "來", "看我們", "。"] },
+                    { id: "L10-S12", chinese: "我外公、外婆也常去法國看阿姨。", segments: ["我", "外公", "、", "外婆","也常去", "法國", "看阿姨", "。"] }
+                ]
+            },
+            {
+                lessonId: 11,
+                lessonTitle: "第十一課：去動物園",
+                sentences: [
+                    { id: "L11-S1", chinese: "下個星期五，學校要帶我們去動物園玩。", segments: ["下個", "星期五", "，", "學校", "要帶", "我們", "去", "動物園", "玩", "。"] },
+                    { id: "L11-S2", chinese: "太好了！你可以看到你喜歡的大象和老虎。", segments: ["太好了", "！", "你可以", "看到", "你喜歡的", "大象", "和", "老虎", "。"] },
+                    { id: "L11-S3", chinese: "這一次我希望可以看到熊貓和猴子。", segments: ["這一次", "我希望", "可以", "看到", "熊貓", "和", "猴子", "。"] },
+                    { id: "L11-S4", chinese: "對，以前我去的時候，動物園沒有熊貓。", segments: ["對", "，", "以前", "我去", "的時候", "，", "動物園", "沒有", "熊貓", "。"] },
+                    { id: "L11-S5", chinese: "現在不但有熊貓，還有企鵝。", segments: ["現在", "不但有", "熊貓", "，", "還有", "企鵝", "。"] },
+                    { id: "L11-S6", chinese: "我覺得熊貓胖胖的，真可愛！", segments: ["我", "覺得", "熊貓", "胖胖的", "，", "真可愛", "！"] },
+                    { id: "L11-S7", chinese: "我喜歡長頸鹿，脖子長長的。", segments: ["我喜歡", "長頸鹿", "，", "脖子", "長長的", "。"] }
+                ]
+            },
+            {
+                lessonId: 12,
+                lessonTitle: "第十二課：打網路電話",
+                sentences: [
+                    { id: "L12-S1", chinese: "大文，我現在要用網路給姑姑打電話。", segments: ["大文", "，", "我", "現在", "要用", "網路", "給姑姑", "打電話", "。"] },
+                    { id: "L12-S2", chinese: "可以看到姑姑嗎？", segments: ["可以", "看到", "姑姑", "嗎", "？"] },
+                    { id: "L12-S3", chinese: "我很久沒跟姑姑說話了。", segments: ["我", "很久", "沒跟", "姑姑", "說話了", "。"] },
+                    { id: "L12-S4", chinese: "可以看到她的影像，快一點過來。", segments: ["可以", "看到", "她的", "影像", "，", "快一點", "過來", "。"] },
+                    { id: "L12-S5", chinese: "大文，你看起來瘦了。", segments: ["大文", "，", "你", "看起來", "瘦了", "。"] },
+                    { id: "L12-S6", chinese: "我沒瘦，我長高了。", segments: ["我沒瘦", "，", "我", "長高了", "。"] },
+                    { id: "L12-S7", chinese: "文文現在也跟你一起去學華語嗎?", segments: ["文文", "現在", "也", "跟", "你", "一起去", "學華語", "嗎", "?",] },
+                    { id: "L12-S8", chinese: "是啊！上中文課很有意思。", segments: ["是啊", "！", "上", "中文課", "很有意思", "。"] },
+                    { id: "L12-S9", chinese: "你好好學華語。", segments: ["你", "好好", "學華語", "。"] },
+                    { id: "L12-S10", chinese: "以後可以用網路給我寫信。", segments: ["以後", "可以", "用網路", "給我", "寫信", "。"] },
+                    { id: "L12-S11", chinese: "沒問題，我一定會好好學華語。", segments: ["沒問題", "，", "我", "一定會", "好好", "學華語", "。"] }
+                ]
+            }
+        ];
+
+        // 整合後的遊戲資料 (預設 + 自訂)
+        let GAME_DATA = [...DEFAULT_GAME_DATA];
+
+        // 狀態變數
+        let state = {
+            currentLessonIndex: 0,
+            currentSentenceIndex: 0,
+            shuffledWords: [],
+            userAnswer: [],
+            isCorrect: null, // null, true, false
+            score: 0,
+            gameCompleted: false,
+            timer: 0,
+            intervalId: null
+        };
+
+        // 編輯器狀態
+        let editingLessonId = null;
+
+        // Audio Context for sound effects
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        // DOM 元素引用
+        const els = {
+            lessonSelect: document.getElementById('lesson-select'),
+            progressDisplay: document.getElementById('progress-display'),
+            answerArea: document.getElementById('answer-area'),
+            sourceArea: document.getElementById('source-area'),
+            feedbackArea: document.getElementById('feedback-area'),
+            resetBtn: document.getElementById('reset-btn'),
+            checkBtn: document.getElementById('check-btn'),
+            nextBtn: document.getElementById('next-btn'),
+            ttsBtn: document.getElementById('tts-btn'),
+            rankDisplay: document.getElementById('rank-display'),
+            timerDisplay: document.getElementById('timer-display'),
+            gameCard: document.getElementById('game-card'),
+            completionScreen: document.getElementById('completion-screen'),
+            completedLessonTitle: document.getElementById('completed-lesson-title'),
+            finalRank: document.getElementById('final-rank'),
+            finalTime: document.getElementById('final-time'),
+            restartBtn: document.getElementById('restart-btn'),
+            nextLessonBtn: document.getElementById('next-lesson-btn'),
+            confettiContainer: document.getElementById('confetti-container'),
+            printLessonTitle: document.getElementById('print-lesson-title'),
+            printWorksheetContent: document.getElementById('print-worksheet-content'),
+            
+            // 編輯器相關
+            editModeBtn: document.getElementById('edit-mode-btn'),
+            editorModal: document.getElementById('editor-modal'),
+            closeEditorBtn: document.getElementById('close-editor-btn'),
+            newLessonTitle: document.getElementById('new-lesson-title'),
+            newLessonContent: document.getElementById('new-lesson-content'),
+            saveLessonBtn: document.getElementById('save-lesson-btn'),
+            customLessonsList: document.getElementById('custom-lessons-list'),
+            editorFormTitle: document.getElementById('editor-form-title'),
+            exportBtn: document.getElementById('export-btn'),
+            importFile: document.getElementById('import-file'),
+            editorPreview: document.getElementById('editor-preview')
+        };
+
+        // 初始化
+        function init() {
+            loadCustomLessons(); // 載入自訂課程
+            renderLessonSelect();
+            startLesson(0);
+            
+            // 綁定事件
+            els.lessonSelect.addEventListener('change', (e) => startLesson(parseInt(e.target.value)));
+            els.resetBtn.addEventListener('click', resetProblem);
+            els.checkBtn.addEventListener('click', checkAnswer);
+            els.nextBtn.addEventListener('click', nextQuestion);
+            els.ttsBtn.addEventListener('click', () => speakText(getCurrentSentence().chinese));
+            els.restartBtn.addEventListener('click', () => startLesson(state.currentLessonIndex));
+            els.nextLessonBtn.addEventListener('click', () => startLesson((state.currentLessonIndex + 1) % GAME_DATA.length));
+            
+            // 編輯器事件
+            els.editModeBtn.addEventListener('click', openEditor);
+            els.closeEditorBtn.addEventListener('click', closeEditor);
+            els.saveLessonBtn.addEventListener('click', saveCustomLesson);
+            els.exportBtn.addEventListener('click', exportCustomLessons);
+            els.importFile.addEventListener('change', importCustomLessons);
+            
+            // 編輯器預覽事件
+            els.newLessonContent.addEventListener('input', updateEditorPreview);
+            
+            // 全局函數供 HTML onclick 調用
+            window.restartLesson = () => startLesson(state.currentLessonIndex);
+            window.nextLesson = () => startLesson((state.currentLessonIndex + 1) % GAME_DATA.length);
+        }
+
+        // --- 音效邏輯 (Web Audio API) ---
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            if (type === 'correct') {
+                // Ding! (High pitch, fast decay)
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'wrong') {
+                // Buzz (Low pitch sawtooth)
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.3);
+            }
+        }
+
+        // --- 編輯器邏輯 ---
+
+        function loadCustomLessons() {
+            const savedData = localStorage.getItem('chinese_learning_game_custom_data');
+            if (savedData) {
+                try {
+                    const customLessons = JSON.parse(savedData);
+                    // 將自訂課程接在預設課程後面
+                    GAME_DATA = [...DEFAULT_GAME_DATA, ...customLessons];
+                } catch (e) {
+                    console.error("無法載入自訂課程", e);
+                }
+            }
+        }
+
+        function openEditor() {
+            els.editorModal.classList.remove('hidden');
+            resetEditorForm();
+            renderCustomLessonList();
+            updateEditorPreview(); // 初始化預覽
+        }
+
+        function closeEditor() {
+            els.editorModal.classList.add('hidden');
+            resetEditorForm();
+        }
+
+        function resetEditorForm() {
+            editingLessonId = null;
+            els.newLessonTitle.value = '';
+            els.newLessonContent.value = '';
+            els.editorFormTitle.textContent = "新增課程";
+            els.saveLessonBtn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                儲存課程
+            `;
+            els.saveLessonBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+            els.saveLessonBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+            updateEditorPreview(); // 重置預覽
+        }
+
+        function updateEditorPreview() {
+            const content = els.newLessonContent.value;
+            if (!content.trim()) {
+                els.editorPreview.innerHTML = '<span class="italic opacity-50">預覽區...</span>';
+                return;
+            }
+
+            const lines = content.split('\n');
+            const html = lines.map((line, idx) => {
+                if (!line.trim()) return '';
+                const segments = line.split(/[\/\s]+/).filter(s => s.trim() !== '');
+                if (segments.length === 0) return '';
+                
+                const blocks = segments.map(seg => 
+                    `<span class="bg-amber-100 text-amber-800 border border-amber-300 px-2 py-1 rounded mx-1 inline-block">${seg}</span>`
+                ).join('');
+                
+                return `<div class="flex items-center mb-1"><span class="text-xs text-gray-400 mr-2 w-4">${idx+1}.</span><div class="flex flex-wrap">${blocks}</div></div>`;
+            }).join('');
+            
+            els.editorPreview.innerHTML = html || '<span class="italic opacity-50">預覽區...</span>';
+        }
+
+        function editCustomLesson(id) {
+            const savedData = localStorage.getItem('chinese_learning_game_custom_data');
+            if (!savedData) return;
+            const customLessons = JSON.parse(savedData);
+            const lesson = customLessons.find(l => l.lessonId === id);
+            
+            if (!lesson) return;
+
+            // 填入表單
+            els.newLessonTitle.value = lesson.lessonTitle;
+            // 將句子還原成文字格式 (segments 用 / 分隔)
+            const contentStr = lesson.sentences.map(s => s.segments.join(' / ')).join('\n');
+            els.newLessonContent.value = contentStr;
+
+            // 設定編輯狀態
+            editingLessonId = id;
+            els.editorFormTitle.textContent = "編輯課程";
+            els.saveLessonBtn.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                更新課程
+            `;
+            els.saveLessonBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+            els.saveLessonBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+            
+            // 更新預覽
+            updateEditorPreview();
+            
+            // 捲動到表單頂部
+            els.editorModal.querySelector('.overflow-y-auto').scrollTop = 0;
+        }
+
+        function saveCustomLesson() {
+            const title = els.newLessonTitle.value.trim();
+            const content = els.newLessonContent.value.trim();
+
+            if (!title || !content) {
+                alert("請輸入課程標題與內容！");
+                return;
+            }
+
+            // 解析內容
+            const lines = content.split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) {
+                alert("請輸入至少一句內容！");
+                return;
+            }
+
+            const sentences = lines.map((line, idx) => {
+                // 支援用 / 或 多個空格 分隔
+                let segments = line.split(/[\/\s]+/).filter(s => s.trim() !== '');
+                const fullSentence = segments.join('');
+                
+                return {
+                    id: editingLessonId ? `custom-${editingLessonId}-${idx}` : `custom-${Date.now()}-${idx}`,
+                    chinese: fullSentence,
+                    segments: segments
+                };
+            });
+
+            // 讀取現有自訂課程
+            let customLessons = [];
+            const savedData = localStorage.getItem('chinese_learning_game_custom_data');
+            if (savedData) customLessons = JSON.parse(savedData);
+
+            if (editingLessonId) {
+                // 更新現有課程
+                const index = customLessons.findIndex(l => l.lessonId === editingLessonId);
+                if (index !== -1) {
+                    customLessons[index].lessonTitle = title;
+                    customLessons[index].sentences = sentences;
+                }
+            } else {
+                // 新增課程
+                const newLesson = {
+                    lessonId: `custom-${Date.now()}`,
+                    lessonTitle: title,
+                    sentences: sentences,
+                    isCustom: true
+                };
+                customLessons.push(newLesson);
+            }
+
+            // 儲存到 LocalStorage
+            localStorage.setItem('chinese_learning_game_custom_data', JSON.stringify(customLessons));
+
+            // 重新載入並更新介面
+            GAME_DATA = [...DEFAULT_GAME_DATA]; // 重置
+            loadCustomLessons();
+            renderLessonSelect();
+            renderCustomLessonList();
+            
+            // 如果是編輯，跳轉到該課程；如果是新增，跳轉到最後一個課程
+            let targetIndex;
+            if (editingLessonId) {
+                targetIndex = GAME_DATA.findIndex(l => l.lessonId === editingLessonId);
+                alert("課程更新成功！");
+            } else {
+                targetIndex = GAME_DATA.length - 1;
+                alert("課程新增成功！");
+            }
+            
+            resetEditorForm();
+            startLesson(targetIndex);
+            closeEditor();
+        }
+
+        function deleteCustomLesson(id) {
+            if (!confirm("確定要刪除這個課程嗎？")) return;
+
+            let customLessons = [];
+            const savedData = localStorage.getItem('chinese_learning_game_custom_data');
+            if (savedData) customLessons = JSON.parse(savedData);
+
+            const updatedLessons = customLessons.filter(l => l.lessonId !== id);
+            localStorage.setItem('chinese_learning_game_custom_data', JSON.stringify(updatedLessons));
+
+            // 重新載入
+            GAME_DATA = [...DEFAULT_GAME_DATA]; 
+            loadCustomLessons();
+            renderLessonSelect();
+            renderCustomLessonList();
+            
+            // 重置編輯器狀態（如果剛好在編輯被刪除的課程）
+            if (editingLessonId === id) {
+                resetEditorForm();
+            }
+
+            // 如果當前在玩被刪除的課，回到第一課
+            startLesson(0);
+        }
+
+        function renderCustomLessonList() {
+            // 從 LocalStorage 讀取，確保顯示正確
+            const savedData = localStorage.getItem('chinese_learning_game_custom_data');
+            const customLessons = savedData ? JSON.parse(savedData) : [];
+
+            if (customLessons.length === 0) {
+                els.customLessonsList.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">尚無自訂課程</p>';
+                return;
+            }
+
+            els.customLessonsList.innerHTML = customLessons.map(lesson => `
+                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <span class="font-medium text-gray-700 truncate mr-2">${lesson.lessonTitle}</span>
+                    <div class="flex gap-2 shrink-0">
+                        <button onclick="editCustomLesson('${lesson.lessonId}')" class="text-blue-500 hover:text-blue-700 text-sm font-bold px-2 py-1 hover:bg-blue-100 rounded transition flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                            編輯
+                        </button>
+                        <button onclick="deleteCustomLesson('${lesson.lessonId}')" class="text-red-500 hover:text-red-700 text-sm font-bold px-2 py-1 hover:bg-red-100 rounded transition flex items-center gap-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            刪除
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            // 把函數掛載到 window
+            window.deleteCustomLesson = deleteCustomLesson;
+            window.editCustomLesson = editCustomLesson;
+        }
+
+        // --- 匯入/匯出 邏輯 ---
+
+        function exportCustomLessons() {
+            const savedData = localStorage.getItem('chinese_learning_game_custom_data');
+            if (!savedData || JSON.parse(savedData).length === 0) {
+                alert("目前沒有自訂課程可以匯出！");
+                return;
+            }
+            
+            const blob = new Blob([savedData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chinese_game_backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function importCustomLessons(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (!Array.isArray(importedData)) {
+                        alert("檔案格式錯誤！請確認匯入的是正確的備份檔。");
+                        return;
+                    }
+
+                    // 讀取現有資料
+                    let currentData = [];
+                    const savedData = localStorage.getItem('chinese_learning_game_custom_data');
+                    if (savedData) currentData = JSON.parse(savedData);
+
+                    // 合併資料 (簡單合併，不檢查重複ID，因為使用 Date.now() ID 重複機率低)
+                    const newData = [...currentData, ...importedData];
+                    localStorage.setItem('chinese_learning_game_custom_data', JSON.stringify(newData));
+
+                    // 重新載入
+                    GAME_DATA = [...DEFAULT_GAME_DATA];
+                    loadCustomLessons();
+                    renderLessonSelect();
+                    renderCustomLessonList();
+                    
+                    alert(`成功匯入 ${importedData.length} 堂課程！`);
+                    // 清空 file input，以便可以再次選擇同個檔案
+                    els.importFile.value = '';
+                } catch (error) {
+                    console.error(error);
+                    alert("匯入失敗：檔案格式錯誤或損毀。");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- 既有邏輯 ---
+
+        function getCurrentLesson() {
+            return GAME_DATA[state.currentLessonIndex];
+        }
+
+        function getCurrentSentence() {
+            return getCurrentLesson().sentences[state.currentSentenceIndex];
+        }
+
+        function renderLessonSelect() {
+            els.lessonSelect.innerHTML = GAME_DATA.map((lesson, idx) => 
+                `<option value="${idx}">${lesson.lessonTitle}</option>`
+            ).join('');
+        }
+
+        function startLesson(index) {
+            // 防止索引越界
+            if (index >= GAME_DATA.length) index = 0;
+
+            state.currentLessonIndex = index;
+            state.currentSentenceIndex = 0;
+            state.score = 0;
+            state.gameCompleted = false;
+            state.timer = 0;
+            
+            els.lessonSelect.value = index;
+            els.completionScreen.classList.add('hidden');
+            els.gameCard.classList.remove('opacity-20');
+            
+            // 清除灑花特效
+            els.confettiContainer.innerHTML = '';
+            
+            clearInterval(state.intervalId);
+            state.intervalId = setInterval(() => {
+                if (!state.gameCompleted) {
+                    state.timer++;
+                    updateHeaderStats();
+                }
+            }, 1000);
+
+            preparePrintContent();
+            resetProblem();
+        }
+
+        function resetProblem() {
+            const sentence = getCurrentSentence();
+            state.shuffledWords = shuffleArray(sentence.segments.map((text, idx) => ({
+                id: `word-${idx}-${Date.now()}`,
+                text: text
+            })));
+            state.userAnswer = [];
+            state.isCorrect = null;
+            
+            renderUI();
+        }
+
+        function renderUI() {
+            const lesson = getCurrentLesson();
+            const total = lesson.sentences.length;
+            
+            els.progressDisplay.textContent = `進度: ${state.currentSentenceIndex + 1} / ${total}`;
+            updateHeaderStats();
+
+            els.answerArea.innerHTML = '';
+            if (state.userAnswer.length === 0) {
+                els.answerArea.innerHTML = `
+                    <div class="text-gray-300 text-center w-full py-8 pointer-events-none select-none flex flex-col items-center">
+                        <span class="text-4xl mb-2 opacity-20">👇</span>
+                        <span>點擊下方詞語加入</span>
+                    </div>`;
+            } else {
+                state.userAnswer.forEach((word, index) => {
+                    const btn = createWordCard(word, true, index);
+                    els.answerArea.appendChild(btn);
+                });
+            }
+
+            els.sourceArea.innerHTML = '';
+            state.shuffledWords.forEach(word => {
+                const btn = createWordCard(word, false);
+                els.sourceArea.appendChild(btn);
+            });
+
+            els.feedbackArea.innerHTML = '';
+            els.feedbackArea.className = 'transition-all duration-300 overflow-hidden max-h-0 py-0 text-center font-bold text-lg';
+            
+            if (state.isCorrect === true) {
+                els.feedbackArea.innerHTML = '<span class="flex items-center justify-center gap-2 animate-bounce"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> 答對了！太棒了！</span>';
+                els.feedbackArea.className = 'transition-all duration-300 overflow-hidden max-h-20 py-2 text-center font-bold text-lg text-green-600 bg-green-100';
+            } else if (state.isCorrect === false) {
+                els.feedbackArea.innerHTML = '<span class="flex items-center justify-center gap-2 animate-shake">再試試看喔！</span>';
+                els.feedbackArea.className = 'transition-all duration-300 overflow-hidden max-h-20 py-2 text-center font-bold text-lg text-red-500 bg-red-100';
+            }
+
+            if (state.isCorrect === true) {
+                els.resetBtn.classList.add('hidden');
+                els.checkBtn.classList.add('hidden');
+                els.nextBtn.classList.remove('hidden');
+            } else {
+                els.resetBtn.classList.remove('hidden');
+                els.checkBtn.classList.remove('hidden');
+                els.nextBtn.classList.add('hidden');
+                
+                if (state.userAnswer.length > 0) {
+                    els.checkBtn.disabled = false;
+                    els.checkBtn.classList.remove('bg-gray-300', 'cursor-not-allowed');
+                    els.checkBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+                } else {
+                    els.checkBtn.disabled = true;
+                    els.checkBtn.classList.add('bg-gray-300', 'cursor-not-allowed');
+                    els.checkBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                }
+            }
+        }
+
+        function createWordCard(wordObj, isAnswerArea, index = -1) {
+            const div = document.createElement('div');
+            let classes = "text-lg md:text-2xl px-4 py-2 rounded-xl shadow-md border-b-4 transition-all transform active:scale-95 duration-200 cursor-pointer select-none flex items-center gap-2 ";
+            
+            if (state.isCorrect === true) {
+                classes += "bg-green-500 text-white border-green-700 scale-105 cursor-default ";
+            } else if (state.isCorrect === false && isAnswerArea) {
+                classes += "bg-red-100 text-red-600 border-red-300 hover:bg-red-200 ";
+            } else if (isAnswerArea) {
+                classes += "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100 hover:border-blue-300 ";
+            } else {
+                classes += "bg-white text-gray-700 border border-gray-200 border-b-4 border-gray-300 hover:bg-white hover:border-amber-300 hover:text-amber-600 hover:border-b-amber-400 hover:-translate-y-1 active:translate-y-0 active:border-b-0 ";
+            }
+
+            div.className = classes;
+            div.textContent = wordObj.text;
+
+            if (isAnswerArea && state.isCorrect !== true) {
+                div.draggable = true;
+                const grip = document.createElement('span');
+                grip.innerHTML = '<svg class="w-4 h-4 text-blue-300 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>';
+                div.prepend(grip);
+
+                div.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    div.classList.add('dragging');
+                    window.draggedItemIndex = index;
+                });
+                div.addEventListener('dragend', (e) => {
+                    div.classList.remove('dragging');
+                    window.draggedItemIndex = null;
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                });
+                div.addEventListener('dragenter', (e) => {
+                    e.preventDefault();
+                    if (window.draggedItemIndex !== index) {
+                        div.classList.add('drag-over');
+                    }
+                });
+                div.addEventListener('dragleave', (e) => {
+                    div.classList.remove('drag-over');
+                });
+                div.addEventListener('dragover', (e) => e.preventDefault());
+                div.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    div.classList.remove('drag-over');
+                    const fromIndex = window.draggedItemIndex;
+                    const toIndex = index;
+                    
+                    if (fromIndex !== null && fromIndex !== toIndex) {
+                        const item = state.userAnswer.splice(fromIndex, 1)[0];
+                        state.userAnswer.splice(toIndex, 0, item);
+                        state.isCorrect = null; 
+                        renderUI();
+                    }
+                });
+            }
+
+            div.addEventListener('click', () => {
+                if (state.isCorrect === true) return;
+
+                if (isAnswerArea) {
+                    state.userAnswer = state.userAnswer.filter(w => w.id !== wordObj.id);
+                    state.shuffledWords.push(wordObj);
+                } else {
+                    state.shuffledWords = state.shuffledWords.filter(w => w.id !== wordObj.id);
+                    state.userAnswer.push(wordObj);
+                }
+                state.isCorrect = null;
+                renderUI();
+            });
+
+            return div;
+        }
+
+        function checkAnswer() {
+            const userString = state.userAnswer.map(w => w.text).join("");
+            const targetString = getCurrentSentence().segments.join("");
+
+            if (userString === targetString) {
+                state.isCorrect = true;
+                state.score += 10;
+                playSound('correct'); // 播放音效
+                speakText(targetString);
+                renderUI();
+            } else {
+                state.isCorrect = false;
+                playSound('wrong'); // 播放音效
+                renderUI();
+            }
+        }
+
+        function nextQuestion() {
+            if (state.currentSentenceIndex < getCurrentLesson().sentences.length - 1) {
+                state.currentSentenceIndex++;
+                resetProblem();
+            } else {
+                completeGame();
+            }
+        }
+
+        function completeGame() {
+            state.gameCompleted = true;
+            clearInterval(state.intervalId);
+            
+            els.completedLessonTitle.textContent = getCurrentLesson().lessonTitle;
+            els.finalRank.textContent = getRankTitle();
+            els.finalTime.textContent = formatTime(state.timer);
+            
+            els.gameCard.classList.add('opacity-20');
+            els.completionScreen.classList.remove('hidden');
+            
+            startConfetti();
+        }
+
+        function startConfetti() {
+            els.confettiContainer.innerHTML = '';
+            const colors = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', '#EC4899'];
+            
+            for (let i = 0; i < 80; i++) {
+                const div = document.createElement('div');
+                div.className = 'confetti-piece';
+                const isFlower = Math.random() > 0.8;
+                const size = 8 + Math.random() * 8;
+                
+                div.style.left = Math.random() * 100 + '%';
+                div.style.backgroundColor = isFlower ? 'transparent' : colors[Math.floor(Math.random() * colors.length)];
+                div.style.width = isFlower ? 'auto' : size + 'px';
+                div.style.height = isFlower ? 'auto' : size + 'px';
+                div.style.borderRadius = Math.random() > 0.5 ? '50%' : '0%';
+                div.style.animation = `confetti-fall ${2 + Math.random() * 3}s linear ${Math.random() * 2}s infinite`;
+                
+                if (isFlower) {
+                    div.textContent = '🌸';
+                    div.style.fontSize = (size * 2) + 'px';
+                }
+                
+                els.confettiContainer.appendChild(div);
+            }
+        }
+
+        function updateHeaderStats() {
+            const rank = getRankTitle();
+            els.rankDisplay.textContent = rank;
+            els.timerDisplay.textContent = formatTime(state.timer);
+        }
+
+        function getRankTitle() {
+            const totalQuestions = getCurrentLesson().sentences.length;
+            const totalPossible = totalQuestions * 10;
+            if (state.score >= totalPossible && totalPossible > 0) return "句子達人";
+            
+            const pct = state.score / totalPossible;
+            if (pct === 0) return "修練中";
+            if (pct < 0.4) return "初級學徒";
+            if (pct < 0.8) return "高級學徒";
+            return "語文高手";
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                const spokenText = text.replace(/都會/g, "兜會");
+                const u = new SpeechSynthesisUtterance(spokenText);
+                u.lang = 'zh-TW';
+                u.rate = 0.8;
+                window.speechSynthesis.speak(u);
+            }
+        }
+
+        function preparePrintContent() {
+            const lesson = getCurrentLesson();
+            els.printLessonTitle.textContent = lesson.lessonTitle;
+            
+            const contentHTML = lesson.sentences.map((sentence, index) => {
+                const shuffled = shuffleArray([...sentence.segments]);
+                let wordCounter = 1;
+                
+                return `
+                <div class="break-inside-avoid mb-4">
+                    <div class="flex gap-2 mb-1 items-center flex-wrap">
+                        <span class="font-bold text-lg mr-2">${index + 1}.</span>
+                        <div class="flex flex-wrap gap-2">
+                            ${shuffled.map((seg) => {
+                                const isPunc = /^[，。？！、：；「」『』,.?!]+$/.test(seg);
+                                let numDisplay = '';
+                                if (!isPunc) {
+                                    numDisplay = `<span class="text-sm font-bold mr-1 text-gray-600">(${wordCounter})</span>`;
+                                    wordCounter++;
+                                }
+                                return `<span class="border border-black px-3 py-1 rounded text-lg bg-gray-50">${numDisplay}${seg}</span>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                    <div class="mt-8 ml-6">
+                        <div class="border-b border-black h-8 w-full"></div>
+                    </div>
+                </div>`;
+            }).join('');
+            
+            els.printWorksheetContent.innerHTML = contentHTML;
+        }
+
+        // 啟動程式
+        init();
+
+    </script>
+</body>
+</html>
