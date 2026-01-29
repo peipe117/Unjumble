@@ -62,6 +62,27 @@
         .modal-overlay {
             background-color: rgba(0, 0, 0, 0.5);
         }
+
+        /* Combo 動畫 */
+        @keyframes pop-in {
+            0% { transform: scale(0); opacity: 0; }
+            70% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .combo-badge {
+            animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        .shake-element {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+        }
     </style>
 </head>
 <body class="bg-amber-50 font-sans min-h-screen flex flex-col relative overflow-x-hidden">
@@ -70,24 +91,41 @@
     <div id="confetti-container"></div>
 
     <!-- 頂部導航 -->
-    <header class="bg-amber-500 text-white p-4 shadow-md sticky top-0 z-20 no-print">
+    <header class="bg-amber-500 text-white p-4 shadow-md sticky top-0 z-20 no-print transition-colors duration-500" id="main-header">
         <div class="max-w-4xl mx-auto flex flex-wrap justify-between items-center gap-2">
             <div class="flex items-center gap-2">
                 <!-- 圖示: BookOpen -->
                 <svg class="w-6 h-6 hidden md:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                <h1 class="text-lg md:text-xl font-bold">學華語向前走 第二冊</h1>
+                <h1 class="text-lg md:text-xl font-bold">學華語向前走 Vol.2</h1>
+                <span id="shared-badge" class="hidden bg-white text-amber-600 text-xs px-2 py-1 rounded-full font-bold ml-2">單課練習模式</span>
             </div>
             
             <div class="flex items-center gap-2 text-sm font-bold ml-auto flex-wrap justify-end">
-                <!-- 編輯按鈕 -->
-                <button id="edit-mode-btn" class="bg-amber-700/50 hover:bg-amber-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition mr-1" title="新增或編輯課程">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                    <span class="hidden sm:inline">編輯課程</span>
+                
+                <!-- 功能按鈕群組 (在分享模式下部分隱藏) -->
+                <div id="standard-controls" class="flex items-center gap-2">
+                    <!-- 分享按鈕 -->
+                    <button id="share-btn" class="bg-blue-500/80 hover:bg-blue-600 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition" title="分享本課連結">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                        <span class="hidden sm:inline">分享單課</span>
+                    </button>
+
+                    <!-- 編輯按鈕 -->
+                    <button id="edit-mode-btn" class="bg-amber-700/50 hover:bg-amber-700 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition" title="新增或編輯課程">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        <span class="hidden sm:inline">編輯課程</span>
+                    </button>
+                </div>
+
+                <!-- 回首頁按鈕 (僅在分享模式顯示) -->
+                <button id="home-btn" class="hidden bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition" title="回到完整版">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <span class="hidden sm:inline">回首頁</span>
                 </button>
 
-                <button onclick="window.print()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition mr-1" title="列印本課學習單">
+                <button onclick="window.print()" class="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-full flex items-center gap-1 transition" title="列印本課學習單">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                    <span class="hidden sm:inline">列印學習單</span>
+                    <span class="hidden sm:inline">列印</span>
                 </button>
 
                 <div class="bg-amber-600 px-3 py-1 rounded-full flex items-center gap-1 shadow-inner" title="目前等級">
@@ -106,15 +144,27 @@
     <main id="app-container" class="max-w-3xl mx-auto w-full p-4 flex-1 flex flex-col z-10 no-print">
         
         <!-- 頂部控制列 (選課與進度) -->
-        <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
-            <div class="w-full md:w-auto">
+        <div class="flex flex-col md:flex-row justify-between items-end mb-4 gap-2">
+            <div class="w-full md:w-auto flex-1">
                 <select id="lesson-select" class="w-full md:w-auto bg-white border-2 border-amber-200 text-gray-700 py-2 px-4 rounded-xl font-medium focus:outline-none focus:border-amber-500 cursor-pointer hover:border-amber-300 transition">
                     <!-- 由 JS 動態生成選項 -->
                 </select>
+                <!-- 分享模式下的標題顯示 (取代下拉選單) -->
+                <div id="shared-lesson-title" class="hidden text-xl font-bold text-gray-800 py-2"></div>
             </div>
-            <div class="text-gray-500 font-medium ml-auto" id="progress-display">
-                進度: 1 / 10
+            
+            <!-- 進度條 -->
+            <div class="w-full md:w-1/3 flex flex-col items-end">
+                <div class="text-gray-500 font-bold text-sm mb-1" id="progress-text">進度: 1 / 10</div>
+                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div id="progress-bar" class="bg-amber-500 h-3 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                </div>
             </div>
+        </div>
+
+        <!-- Combo 顯示區 -->
+        <div id="combo-container" class="h-8 mb-2 flex justify-center items-center relative">
+            <!-- JS 動態插入 combo -->
         </div>
 
         <!-- 遊戲卡片區域 -->
@@ -189,13 +239,37 @@
                 <button id="restart-btn" class="w-full py-3 bg-blue-500 text-white rounded-xl font-bold text-lg hover:bg-blue-600 transition shadow-lg flex items-center justify-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> 再玩一次
                 </button>
+                <!-- 分享模式下，這個按鈕會變成「回首頁」或隱藏，一般模式則是「下一課」 -->
                 <button id="next-lesson-btn" class="w-full py-3 bg-amber-500 text-white rounded-xl font-bold text-lg hover:bg-amber-600 transition shadow-lg flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg> 下一課
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg> <span id="next-lesson-text">下一課</span>
                 </button>
             </div>
         </div>
 
     </main>
+
+    <!-- 分享連結模態視窗 -->
+    <div id="share-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 no-print">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 relative">
+            <button id="close-share-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+                分享單課練習
+            </h3>
+            <p class="text-gray-600 mb-4 text-sm">複製下方的連結，分享給學生。他們打開後將直接進入此課程的練習模式。</p>
+            
+            <div class="bg-gray-100 p-3 rounded-lg break-all text-xs font-mono mb-4 border border-gray-200 max-h-32 overflow-y-auto" id="share-url-box">
+                <!-- URL will be here -->
+            </div>
+            
+            <button id="copy-share-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                複製連結
+            </button>
+        </div>
+    </div>
 
     <!-- 編輯器模態視窗 -->
     <div id="editor-modal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 no-print">
@@ -403,7 +477,7 @@
                     { id: "L8-S4", chinese: "我每天都帶牠們去散步。", segments: ["我", "每天", "都帶", "牠們", "去", "散步", "。"] },
                     { id: "L8-S5", chinese: "張莉，你養過狗嗎？", segments: ["張莉", "，", "你", "養過", "狗", "嗎", "？"] },
                     { id: "L8-S6", chinese: "我沒養過狗，我去年養了一隻貓。", segments: ["我", "沒養過", "狗", "，", "我去年", "養了", "一隻貓", "。"] },
-                    { id: "L8-S7", chinese: "可是上個月不見了。", segments: ["可是","上個月", "不見了", "。"] },
+                    { id: "L8-S7", chinese: "可是，上個月不見了。", segments: ["可是", "，","上個月", "不見了", "。"] },
                     { id: "L8-S8", chinese: "我也養過貓，非常可愛。", segments: ["我也", "養過貓", "，", "非常可愛", "。"] },
                     { id: "L8-S9", chinese: "我每天都餵牠。", segments: ["我", "每天", "都", "餵牠", "。"] },
                     { id: "L8-S10", chinese: "以後我想養一隻兔子。", segments: ["以後", "我想", "養", "一隻", "兔子", "。"] }
@@ -482,9 +556,11 @@
             userAnswer: [],
             isCorrect: null, // null, true, false
             score: 0,
+            combo: 0, // 新增 Combo
             gameCompleted: false,
             timer: 0,
-            intervalId: null
+            intervalId: null,
+            isSharedMode: false // 新增分享模式旗標
         };
 
         // 編輯器狀態
@@ -493,10 +569,27 @@
         // Audio Context for sound effects
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+        // 鼓勵語庫
+        const PRAISE_MESSAGES = [
+            "太棒了！", "神乎其技！", "勢如破竹！", "無人能擋！", "太神了！", "完美無缺！", "Excellent!", "Awesome!"
+        ];
+
         // DOM 元素引用
         const els = {
             lessonSelect: document.getElementById('lesson-select'),
+            sharedLessonTitle: document.getElementById('shared-lesson-title'), // 新增
+            sharedBadge: document.getElementById('shared-badge'), // 新增
+            standardControls: document.getElementById('standard-controls'), // 新增
+            homeBtn: document.getElementById('home-btn'), // 新增
+            shareBtn: document.getElementById('share-btn'), // 新增
+            shareModal: document.getElementById('share-modal'), // 新增
+            closeShareBtn: document.getElementById('close-share-btn'), // 新增
+            shareUrlBox: document.getElementById('share-url-box'), // 新增
+            copyShareBtn: document.getElementById('copy-share-btn'), // 新增
             progressDisplay: document.getElementById('progress-display'),
+            progressBar: document.getElementById('progress-bar'), 
+            progressText: document.getElementById('progress-text'), 
+            comboContainer: document.getElementById('combo-container'), 
             answerArea: document.getElementById('answer-area'),
             sourceArea: document.getElementById('source-area'),
             feedbackArea: document.getElementById('feedback-area'),
@@ -513,9 +606,11 @@
             finalTime: document.getElementById('final-time'),
             restartBtn: document.getElementById('restart-btn'),
             nextLessonBtn: document.getElementById('next-lesson-btn'),
+            nextLessonText: document.getElementById('next-lesson-text'),
             confettiContainer: document.getElementById('confetti-container'),
             printLessonTitle: document.getElementById('print-lesson-title'),
             printWorksheetContent: document.getElementById('print-worksheet-content'),
+            mainHeader: document.getElementById('main-header'),
             
             // 編輯器相關
             editModeBtn: document.getElementById('edit-mode-btn'),
@@ -533,9 +628,32 @@
 
         // 初始化
         function init() {
-            loadCustomLessons(); // 載入自訂課程
-            renderLessonSelect();
-            startLesson(0);
+            // 1. 檢查是否為分享模式 URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const sharedData = urlParams.get('data');
+
+            if (sharedData) {
+                try {
+                    const lesson = JSON.parse(b64_to_utf8(sharedData));
+                    if (lesson && lesson.lessonTitle && lesson.sentences) {
+                        enterSharedMode(lesson);
+                    } else {
+                        throw new Error("Invalid lesson format");
+                    }
+                } catch (e) {
+                    console.error("分享連結錯誤:", e);
+                    alert("無效的分享連結，將返回首頁。");
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    loadCustomLessons();
+                    renderLessonSelect();
+                    startLesson(0);
+                }
+            } else {
+                // 正常模式
+                loadCustomLessons();
+                renderLessonSelect();
+                startLesson(0);
+            }
             
             // 綁定事件
             els.lessonSelect.addEventListener('change', (e) => startLesson(parseInt(e.target.value)));
@@ -544,7 +662,19 @@
             els.nextBtn.addEventListener('click', nextQuestion);
             els.ttsBtn.addEventListener('click', () => speakText(getCurrentSentence().chinese));
             els.restartBtn.addEventListener('click', () => startLesson(state.currentLessonIndex));
-            els.nextLessonBtn.addEventListener('click', () => startLesson((state.currentLessonIndex + 1) % GAME_DATA.length));
+            
+            // 分享模式的下一步/回首頁邏輯
+            els.nextLessonBtn.addEventListener('click', () => {
+                if (state.isSharedMode) {
+                    // 分享模式下，這個按鈕功能是回首頁 (清除URL參數)
+                    window.location.href = window.location.pathname;
+                } else {
+                    startLesson((state.currentLessonIndex + 1) % GAME_DATA.length);
+                }
+            });
+            els.homeBtn.addEventListener('click', () => {
+                window.location.href = window.location.pathname;
+            });
             
             // 編輯器事件
             els.editModeBtn.addEventListener('click', openEditor);
@@ -553,12 +683,91 @@
             els.exportBtn.addEventListener('click', exportCustomLessons);
             els.importFile.addEventListener('change', importCustomLessons);
             
+            // 分享事件
+            els.shareBtn.addEventListener('click', openShareModal);
+            els.closeShareBtn.addEventListener('click', () => els.shareModal.classList.add('hidden'));
+            els.copyShareBtn.addEventListener('click', copyShareLink);
+            
             // 編輯器預覽事件
             els.newLessonContent.addEventListener('input', updateEditorPreview);
             
             // 全局函數供 HTML onclick 調用
             window.restartLesson = () => startLesson(state.currentLessonIndex);
-            window.nextLesson = () => startLesson((state.currentLessonIndex + 1) % GAME_DATA.length);
+            window.nextLesson = () => {
+                if (state.isSharedMode) {
+                    window.location.href = window.location.pathname;
+                } else {
+                    startLesson((state.currentLessonIndex + 1) % GAME_DATA.length);
+                }
+            };
+        }
+
+        // --- 分享模式邏輯 ---
+
+        // 處理 Base64 編碼 (解決中文問題)
+        function utf8_to_b64(str) {
+            return window.btoa(unescape(encodeURIComponent(str)));
+        }
+
+        function b64_to_utf8(str) {
+            return decodeURIComponent(escape(window.atob(str)));
+        }
+
+        function enterSharedMode(lesson) {
+            state.isSharedMode = true;
+            // 覆蓋遊戲資料為單一課程
+            GAME_DATA = [lesson];
+            
+            // UI 調整
+            els.lessonSelect.classList.add('hidden');
+            els.sharedLessonTitle.classList.remove('hidden');
+            els.sharedLessonTitle.textContent = lesson.lessonTitle;
+            
+            els.standardControls.classList.add('hidden'); // 隱藏編輯/分享按鈕
+            els.homeBtn.classList.remove('hidden'); // 顯示回首頁按鈕
+            els.sharedBadge.classList.remove('hidden');
+            
+            // 調整過關畫面按鈕文字
+            els.nextLessonText.textContent = "回首頁";
+            
+            startLesson(0);
+        }
+
+        function openShareModal() {
+            const lesson = getCurrentLesson();
+            // 只保留必要的資料以縮短 URL
+            const lessonData = {
+                lessonTitle: lesson.lessonTitle,
+                sentences: lesson.sentences.map(s => ({
+                    chinese: s.chinese,
+                    segments: s.segments
+                }))
+            };
+            
+            const jsonStr = JSON.stringify(lessonData);
+            const b64 = utf8_to_b64(jsonStr);
+            const url = `${window.location.protocol}//${window.location.host}${window.location.pathname}?data=${b64}`;
+            
+            els.shareUrlBox.textContent = url;
+            els.shareModal.classList.remove('hidden');
+            
+            // 檢查長度警告
+            if (url.length > 2000) {
+                alert("注意：此課程內容較長，生成的連結可能過長而無法在某些瀏覽器開啟。建議使用匯出檔案的方式分享。");
+            }
+        }
+
+        function copyShareLink() {
+            const text = els.shareUrlBox.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = els.copyShareBtn.innerHTML;
+                els.copyShareBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> 已複製！`;
+                setTimeout(() => {
+                    els.copyShareBtn.innerHTML = originalText;
+                }, 2000);
+            }).catch(err => {
+                alert("複製失敗，請手動複製網址");
+            });
         }
 
         // --- 音效邏輯 (Web Audio API) ---
@@ -566,28 +775,46 @@
             if (audioCtx.state === 'suspended') {
                 audioCtx.resume();
             }
-            const oscillator = audioCtx.createOscillator();
             const gainNode = audioCtx.createGain();
-            
-            oscillator.connect(gainNode);
             gainNode.connect(audioCtx.destination);
             
             if (type === 'correct') {
-                // Ding! (High pitch, fast decay)
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
-                oscillator.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1);
-                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.5);
+                // Arpeggio C Major (C5, E5, G5)
+                const notes = [523.25, 659.25, 783.99];
+                notes.forEach((freq, i) => {
+                    const oscillator = audioCtx.createOscillator();
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = freq;
+                    oscillator.connect(gainNode);
+                    oscillator.start(audioCtx.currentTime + i * 0.08);
+                    oscillator.stop(audioCtx.currentTime + i * 0.08 + 0.2);
+                });
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+            } else if (type === 'correct_combo') {
+                // Higher pitch Arpeggio for combo (G5, B5, D6)
+                const notes = [783.99, 987.77, 1174.66];
+                notes.forEach((freq, i) => {
+                    const oscillator = audioCtx.createOscillator();
+                    oscillator.type = 'triangle'; // Brighter sound
+                    oscillator.frequency.value = freq;
+                    oscillator.connect(gainNode);
+                    oscillator.start(audioCtx.currentTime + i * 0.06);
+                    oscillator.stop(audioCtx.currentTime + i * 0.06 + 0.2);
+                });
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
             } else if (type === 'wrong') {
-                // Buzz (Low pitch sawtooth)
+                // Low thud
+                const oscillator = audioCtx.createOscillator();
                 oscillator.type = 'sawtooth';
                 oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
-                oscillator.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+                oscillator.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+                
                 gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
                 gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                
+                oscillator.connect(gainNode);
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + 0.3);
             }
@@ -901,10 +1128,13 @@
             state.currentLessonIndex = index;
             state.currentSentenceIndex = 0;
             state.score = 0;
+            state.combo = 0; // Reset combo
             state.gameCompleted = false;
             state.timer = 0;
             
-            els.lessonSelect.value = index;
+            if (!state.isSharedMode) {
+                els.lessonSelect.value = index;
+            }
             els.completionScreen.classList.add('hidden');
             els.gameCard.classList.remove('opacity-20');
             
@@ -938,9 +1168,23 @@
         function renderUI() {
             const lesson = getCurrentLesson();
             const total = lesson.sentences.length;
+            const current = state.currentSentenceIndex + 1;
+            const percentage = (current - 1) / total * 100; // Progress bar
             
-            els.progressDisplay.textContent = `進度: ${state.currentSentenceIndex + 1} / ${total}`;
+            els.progressText.textContent = `進度: ${current} / ${total}`;
+            els.progressBar.style.width = `${percentage}%`;
             updateHeaderStats();
+
+            // 更新 Combo 顯示
+            if (state.combo > 1) {
+                els.comboContainer.innerHTML = `
+                    <div class="bg-orange-500 text-white px-4 py-1 rounded-full font-bold shadow-lg flex items-center gap-2 combo-badge transform">
+                        <span class="text-xl">🔥</span> 連對 x${state.combo}
+                    </div>
+                `;
+            } else {
+                els.comboContainer.innerHTML = '';
+            }
 
             els.answerArea.innerHTML = '';
             if (state.userAnswer.length === 0) {
@@ -966,11 +1210,19 @@
             els.feedbackArea.className = 'transition-all duration-300 overflow-hidden max-h-0 py-0 text-center font-bold text-lg';
             
             if (state.isCorrect === true) {
-                els.feedbackArea.innerHTML = '<span class="flex items-center justify-center gap-2 animate-bounce"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> 答對了！太棒了！</span>';
+                const praise = state.combo > 1 
+                    ? PRAISE_MESSAGES[Math.floor(Math.random() * PRAISE_MESSAGES.length)]
+                    : "答對了！太棒了！";
+                
+                els.feedbackArea.innerHTML = `<span class="flex items-center justify-center gap-2 animate-bounce"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> ${praise}</span>`;
                 els.feedbackArea.className = 'transition-all duration-300 overflow-hidden max-h-20 py-2 text-center font-bold text-lg text-green-600 bg-green-100';
             } else if (state.isCorrect === false) {
                 els.feedbackArea.innerHTML = '<span class="flex items-center justify-center gap-2 animate-shake">再試試看喔！</span>';
                 els.feedbackArea.className = 'transition-all duration-300 overflow-hidden max-h-20 py-2 text-center font-bold text-lg text-red-500 bg-red-100';
+                
+                // Shake effect on game card
+                els.gameCard.classList.add('shake-element');
+                setTimeout(() => els.gameCard.classList.remove('shake-element'), 500);
             }
 
             if (state.isCorrect === true) {
@@ -1075,12 +1327,15 @@
 
             if (userString === targetString) {
                 state.isCorrect = true;
-                state.score += 10;
-                playSound('correct'); // 播放音效
+                state.combo++; // 連對增加
+                state.score += (10 + (state.combo - 1) * 2); // 基礎分10 + 連對加成
+                
+                playSound(state.combo > 1 ? 'correct_combo' : 'correct'); // 播放音效
                 speakText(targetString);
                 renderUI();
             } else {
                 state.isCorrect = false;
+                state.combo = 0; // 重置連對
                 playSound('wrong'); // 播放音效
                 renderUI();
             }
@@ -1091,6 +1346,8 @@
                 state.currentSentenceIndex++;
                 resetProblem();
             } else {
+                // Update final progress bar to 100%
+                els.progressBar.style.width = '100%';
                 completeGame();
             }
         }
@@ -1143,10 +1400,17 @@
 
         function getRankTitle() {
             const totalQuestions = getCurrentLesson().sentences.length;
-            const totalPossible = totalQuestions * 10;
-            if (state.score >= totalPossible && totalPossible > 0) return "句子達人";
+            // 滿分邏輯略微調整，因為有連對加分，這裡只用基本分算百分比
+            // 或者簡單判定：只要全對就是達人
+            const baseScore = state.score; 
             
-            const pct = state.score / totalPossible;
+            // 簡單起見，還是用完成度或題目數來估算，但保持原有邏輯
+            // 這裡可以保持原樣，因為分數只會更高
+            const totalPossibleBase = totalQuestions * 10;
+            
+            if (state.score >= totalPossibleBase && totalPossibleBase > 0) return "句子達人";
+            
+            const pct = state.score / totalPossibleBase;
             if (pct === 0) return "修練中";
             if (pct < 0.4) return "初級學徒";
             if (pct < 0.8) return "高級學徒";
